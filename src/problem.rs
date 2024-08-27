@@ -77,14 +77,52 @@ impl<S> GoalTest for GoalTestFn<S> {
     }
 }
 
-pub struct Problem<A, T, G>
+pub trait PathCostSource {
+    type State;
+    type Action;
+    type CostType;
+    fn cost(&self, current: &Self::State, action: &Self::Action) -> Self::CostType;
+}
+
+pub type PathCostFn<S, A, T> = fn(&S, &A) -> T;
+
+impl<S, A, T> PathCostSource for PathCostFn<S, A, T> {
+    type State = S;
+    type Action = A;
+    type CostType = T;
+    fn cost(&self, current: &Self::State, action: &Self::Action) -> Self::CostType {
+        self(current, action)
+    }
+}
+
+pub struct UniformPathCost<S, A, T>(std::marker::PhantomData<(S, A, T)>);
+
+impl<S, A, T> Default for UniformPathCost<S, A, T> {
+    fn default() -> Self {
+        UniformPathCost(std::marker::PhantomData::default())
+    }
+}
+
+impl<S, A, T: From<i8>> PathCostSource for UniformPathCost<S, A, T> {
+    type State = S;
+    type Action = A;
+    type CostType = T;
+
+    fn cost(&self, _current: &Self::State, _action: &Self::Action) -> Self::CostType {
+        Self::CostType::from(1)
+    }
+}
+
+pub struct Problem<A, T, G, C>
 where
     A: StateActionsMap,
     T: Transition<State = A::State, Action = A::Action>,
     G: GoalTest<State = A::State>,
+    C: PathCostSource<State = A::State, Action = A::Action>,
 {
     pub initial_state: A::State,
     pub actions: A,
     pub transition_model: T,
     pub goal: G,
+    pub path_cost: C,
 }

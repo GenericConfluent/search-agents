@@ -81,6 +81,7 @@ type SquareLessOne = Problem<
     StateActionsFn<GridState, GridAction>,
     TransitionFn<GridState, GridAction>,
     GoalTestFn<GridState>,
+    UniformPathCost<GridState, GridAction, isize>,
 >;
 
 pub fn square_less_one(size: usize) -> SquareLessOne {
@@ -92,5 +93,6 @@ pub fn square_less_one(size: usize) -> SquareLessOne {
         actions: GridState::actions,
         transition_model: GridState::transition,
         goal: GridState::is_solved,
+        path_cost: UniformPathCost::default(),
     }
 }

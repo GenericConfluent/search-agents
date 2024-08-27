@@ -67,6 +67,7 @@ type VacuumeWorld = Problem<
     StateActionsFn<VacuumeState, VacuumeAction>,
     TransitionFn<VacuumeState, VacuumeAction>,
     GoalTestFn<VacuumeState>,
+    UniformPathCost<VacuumeState, VacuumeAction, isize>,
 >;
 
 pub fn vacuume_world() -> VacuumeWorld {
@@ -78,5 +79,6 @@ pub fn vacuume_world() -> VacuumeWorld {
         actions: vacuume_actions,
         transition_model: vacuume_transition,
         goal: vacuume_goal_test,
+        path_cost: UniformPathCost::default(),
     }
 }
