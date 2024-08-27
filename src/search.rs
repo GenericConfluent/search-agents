@@ -201,3 +201,99 @@ where
 
     None
 }
+
+pub enum DslError {
+    Failed,
+    Cutoff,
+}
+
+fn dls_recursive<A, T, G, C>(
+    problem: &Problem<A, T, G, C>,
+    node: &Rc<Node<A::State, A::Action>>,
+    limit: usize,
+) -> Result<Vec<A::Action>, DslError>
+where
+    A: StateActionsMap,
+    A::State: Hash + Eq + Clone,
+    A::Action: Clone,
+    T: Transition<State = A::State, Action = A::Action>,
+    G: GoalTest<State = A::State>,
+    C: PathCostSource<State = A::State, Action = A::Action, CostType = isize>,
+{
+    if problem.goal.is_goal(&node.state) {
+        Ok(node.solution())
+    } else if limit == 0 {
+        Err(DslError::Cutoff)
+    } else {
+        let mut cutoff = false;
+        for act in problem.actions.actions(&node.state) {
+            let child = Rc::new(generate(&problem, &node, act));
+            let result = dls_recursive(&problem, &child, limit - 1);
+            if result.is_ok() {
+                return result;
+            }
+            if matches!(result, Err(DslError::Cutoff)) {
+                cutoff = true;
+            }
+        }
+        let dsl_err = if cutoff {
+            DslError::Cutoff
+        } else {
+            DslError::Failed
+        };
+        Err(dsl_err)
+    }
+}
+
+#[inline(always)]
+fn depth_limited_search<A, T, G, C>(
+    problem: &Problem<A, T, G, C>,
+    limit: usize,
+) -> Result<Vec<A::Action>, DslError>
+where
+    A: StateActionsMap,
+    A::State: Hash + Eq + Clone,
+    A::Action: Clone,
+    T: Transition<State = A::State, Action = A::Action>,
+    G: GoalTest<State = A::State>,
+    C: PathCostSource<State = A::State, Action = A::Action, CostType = isize>,
+{
+    let root = Rc::new(Node::from(problem.initial_state.clone()));
+    dls_recursive(&problem, &root, limit)
+}
+
+#[inline(always)]
+fn depth_first_search<A, T, G, C>(problem: &Problem<A, T, G, C>) -> Result<Vec<A::Action>, DslError>
+where
+    A: StateActionsMap,
+    A::State: Hash + Eq + Clone,
+    A::Action: Clone,
+    T: Transition<State = A::State, Action = A::Action>,
+    G: GoalTest<State = A::State>,
+    C: PathCostSource<State = A::State, Action = A::Action, CostType = isize>,
+{
+    depth_limited_search(problem, usize::MAX)
+}
+
+#[inline(always)]
+fn iterative_deepening_search<A, T, G, C>(
+    problem: &Problem<A, T, G, C>,
+) -> Result<Vec<A::Action>, DslError>
+where
+    A: StateActionsMap,
+    A::State: Hash + Eq + Clone,
+    A::Action: Clone,
+    T: Transition<State = A::State, Action = A::Action>,
+    G: GoalTest<State = A::State>,
+    C: PathCostSource<State = A::State, Action = A::Action, CostType = isize>,
+{
+    for depth in 0.. {
+        let result = depth_limited_search(problem, depth);
+        // We failed with cutoff so try increasing the cutoff
+        if matches!(result, Err(DslError::Cutoff)) {
+            continue;
+        }
+        return result;
+    }
+    Err(DslError::Failed)
+}
